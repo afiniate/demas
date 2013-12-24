@@ -6,20 +6,29 @@ type t
 
 type params = (string * string) List.t
 
+type auth_result = Authorized
+                 | Halt of Server.response Deferred.t
+
+type auth_handler = body:string Pipe.Reader.t option ->
+               Socket.Address.Inet.t ->
+               params ->
+               Request.t ->
+               auth_result
+
 type handler = body:string Pipe.Reader.t option ->
                Socket.Address.Inet.t ->
                params ->
                Request.t ->
                Server.response Deferred.t
 
-val get : t -> string -> handler -> t
-val head : t -> string -> handler -> t
-val delete : t -> string -> handler -> t
-val post : t -> string -> handler -> t
-val put : t -> string -> handler ->  t
-val patch : t -> string -> handler -> t
-val options : t -> string -> handler -> t
-
+val get : t -> string -> ?authorizer:auth_handler -> handler -> t
+val head : t -> string -> ?authorizer:auth_handler -> handler -> t
+val delete : t -> string -> ?authorizer:auth_handler -> handler -> t
+val post : t -> string -> ?authorizer:auth_handler -> handler -> t
+val put : t -> string -> ?authorizer:auth_handler -> handler ->  t
+val patch : t -> string -> ?authorizer:auth_handler -> handler -> t
+val options : t -> string -> ?authorizer:auth_handler -> handler -> t
+val set_authorization_handler: t -> auth_handler -> t
 val set_routing_error_handler: t -> handler -> t
 
 val base_system: t
