@@ -6,74 +6,78 @@ open Cohttp_async
 
 type params = Ouija.params
 
-type auth_result = Authorized
-                 | Halt of Server.response Deferred.t
+type ('a) auth_data = 'a Option.t
 
-type auth_handler = body:string Pipe.Reader.t option ->
-               Socket.Address.Inet.t ->
-               params ->
-               Request.t ->
-               auth_result with sexp_of
+type ('a) auth_result = Authorized of 'a auth_data
+                      | Halt of Server.response Deferred.t
 
-type handler = body:string Pipe.Reader.t option ->
-               Socket.Address.Inet.t ->
-               params ->
-               Request.t ->
-               Server.response Deferred.t with sexp_of
+type ('a) auth_handler = body:string Pipe.Reader.t option ->
+                         Socket.Address.Inet.t ->
+                         params ->
+                         Request.t ->
+                         'a auth_result with sexp_of
 
-type target = auth_handler Option.t * handler with sexp_of
+type ('a) handler = body:string Pipe.Reader.t option ->
+                    auth_data:'a auth_data ->
+                    Socket.Address.Inet.t ->
+                    params ->
+                    Request.t ->
+                    Server.response Deferred.t with sexp_of
 
-type t = {get: target Ouija.t;
-          head: target Ouija.t;
-          delete: target Ouija.t;
-          post: target Ouija.t;
-          put: target Ouija.t;
-          patch: target Ouija.t;
-          options: target Ouija.t;
-          authorizer: auth_handler Option.t;
-          routing_error_handler: handler Option.t} with sexp_of
+type ('a) target = 'a auth_handler Option.t * 'a handler with sexp_of
 
-let insert_handler ouija uri_spec ?authorizer handler =
-  Ouija.insert_handler ouija uri_spec (authorizer, handler)
+type ('a) t = {get: 'a target Ouija.t;
+               head: 'a target Ouija.t;
+               delete: 'a target Ouija.t;
+               post: 'a target Ouija.t;
+               put: 'a target Ouija.t;
+               patch: 'a target Ouija.t;
+               options: 'a target Ouija.t;
+               authorizer: 'a auth_handler Option.t;
+               routing_error_handler: 'a handler Option.t} with sexp_of
 
-let get sys uri_spec ?authorizer handler =
-  {sys with get = insert_handler sys.get uri_spec ?authorizer handler}
+let insert_handler ouija route ?authorizer handler =
+  Ouija.insert_handler ouija route (authorizer, handler)
 
-let head sys uri_spec ?authorizer handler =
-  {sys with head = insert_handler sys.head uri_spec ?authorizer handler}
+let get sys ~route ?authorizer ~handler =
+  {sys with get = insert_handler sys.get route ?authorizer handler}
 
-let delete sys uri_spec ?authorizer handler =
-  {sys with delete = insert_handler sys.delete uri_spec ?authorizer handler}
+let head sys ~route ?authorizer ~handler =
+  {sys with head = insert_handler sys.head route ?authorizer handler}
 
-let post sys uri_spec ?authorizer handler =
-  {sys with post = insert_handler sys.post uri_spec ?authorizer handler}
+let delete sys ~route ?authorizer ~handler =
+  {sys with delete = insert_handler sys.delete route ?authorizer handler}
 
-let put sys uri_spec ?authorizer handler =
-  {sys with put = insert_handler sys.put uri_spec ?authorizer handler}
+let post sys ~route ?authorizer ~handler =
+  {sys with post = insert_handler sys.post route ?authorizer handler}
 
-let patch sys uri_spec ?authorizer handler =
-  {sys with patch = insert_handler sys.patch uri_spec ?authorizer handler}
+let put sys ~route ?authorizer ~handler =
+  {sys with put = insert_handler sys.put route ?authorizer handler}
 
-let options sys uri_spec ?authorizer handler =
-  {sys with options = insert_handler sys.options uri_spec ?authorizer handler}
+let patch sys ~route ?authorizer ~handler =
+  {sys with patch = insert_handler sys.patch route ?authorizer handler}
 
-let set_authorization_handler sys handler =
-  {sys with authorizer = Some handler}
+let options sys ~route ?authorizer ~handler =
+  {sys with options = insert_handler sys.options route ?authorizer handler}
 
-let set_routing_error_handler sys error_handler =
-  {sys with routing_error_handler = Some error_handler}
+let set_authorization_handler sys ~authorizer =
+  {sys with authorizer = Some authorizer}
 
-let base_system = {get = Ouija.init '/';
-                   head = Ouija.init '/';
-                   delete = Ouija.init '/';
-                   post = Ouija.init '/';
-                   put = Ouija.init '/';
-                   patch = Ouija.init '/';
-                   options = Ouija.init '/';
-                   authorizer = None;
-                   routing_error_handler = None}
+let set_routing_error_handler sys ~handler =
+  {sys with routing_error_handler = Some handler}
 
-let default_error_handler ~body address req =
+let base_system () = {get = Ouija.init '/';
+                      head = Ouija.init '/';
+                      delete = Ouija.init '/';
+                      post = Ouija.init '/';
+                      put = Ouija.init '/';
+                      patch = Ouija.init '/';
+                      options = Ouija.init '/';
+                      authorizer = None;
+                      routing_error_handler = None}
+
+let default_error_handler ~body auth_data address req =
+  ignore auth_data;
   ignore body;
   ignore address;
   ignore req;
@@ -83,9 +87,9 @@ let default_error_handler ~body address req =
 let error_handler sys ~body address params req =
   match sys.routing_error_handler with
   | Some handler ->
-     handler ~body address params req
+     handler ~body ~auth_data:None address params req
   | None ->
-     default_error_handler ~body address req
+     (default_error_handler ~body None address req)
 
 let get_node sys req =
   match Request.meth req with
@@ -97,23 +101,23 @@ let get_node sys req =
   | `PUT -> sys.put
   | `OPTIONS -> sys.options
 
-let handle_auth authorizer handler ~body address params (req:Cohttp.Request.t) =
+let handle_auth authorizer handler ~body address params req =
   match authorizer ~body address params req with
-  | Authorized ->
-     handler ~body address params req
+  | Authorized auth_data ->
+     handler ~body ~auth_data address params req
   | Halt resp ->
      resp
 
-let handler sys handler_group  =
+let handler sys (handler_group:'a auth_handler Option.t * 'a handler)  =
   match handler_group with
-  | (Some local_auth, handler) ->
-     handle_auth local_auth handler
-  | (None, handler) ->
+  | (Some local_auth, body_handler) ->
+     handle_auth local_auth body_handler
+  | (None, body_handler) ->
      (match sys.authorizer with
       | Some global_auth ->
-         handle_auth global_auth handler
+         handle_auth global_auth body_handler
       | None ->
-         handler)
+         body_handler ~auth_data:None)
 
 let server sys ~body address req =
   let uri = Uri.path (Request.uri req) in
@@ -147,7 +151,3 @@ let serve ?listen_on
                 ~max_pending_connections
                 ~on_handler_error
                 listen_target (server system)
-
-
-let to_string system =
-  Sexp.to_string (sexp_of_t system)

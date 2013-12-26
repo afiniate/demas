@@ -2,36 +2,39 @@ open Core.Std
 open Async.Std
 open Cohttp_async
 
-type t
+type ('a) t
 
-type params = (string * string) List.t
+type params = Ouija.params
 
-type auth_result = Authorized
-                 | Halt of Server.response Deferred.t
+type ('a) auth_data = 'a Option.t
 
-type auth_handler = body:string Pipe.Reader.t option ->
-               Socket.Address.Inet.t ->
-               params ->
-               Request.t ->
-               auth_result
+type ('a) auth_result = Authorized of 'a auth_data
+                      | Halt of Server.response Deferred.t
 
-type handler = body:string Pipe.Reader.t option ->
-               Socket.Address.Inet.t ->
-               params ->
-               Request.t ->
-               Server.response Deferred.t
+type ('a) auth_handler = body:string Pipe.Reader.t option ->
+                         Socket.Address.Inet.t ->
+                         params ->
+                         Request.t ->
+                         'a auth_result with sexp_of
 
-val get : t -> string -> ?authorizer:auth_handler -> handler -> t
-val head : t -> string -> ?authorizer:auth_handler -> handler -> t
-val delete : t -> string -> ?authorizer:auth_handler -> handler -> t
-val post : t -> string -> ?authorizer:auth_handler -> handler -> t
-val put : t -> string -> ?authorizer:auth_handler -> handler ->  t
-val patch : t -> string -> ?authorizer:auth_handler -> handler -> t
-val options : t -> string -> ?authorizer:auth_handler -> handler -> t
-val set_authorization_handler: t -> auth_handler -> t
-val set_routing_error_handler: t -> handler -> t
+type ('a) handler = body:string Pipe.Reader.t option ->
+                    auth_data:'a auth_data ->
+                    Socket.Address.Inet.t ->
+                    params ->
+                    Request.t ->
+                    Server.response Deferred.t with sexp_of
 
-val base_system: t
+val get : 'a t -> route:string -> ?authorizer:'a auth_handler -> handler:'a handler -> 'a t
+val head : 'a t -> route:string -> ?authorizer:'a auth_handler -> handler:'a handler -> 'a t
+val delete : 'a t -> route:string -> ?authorizer:'a auth_handler -> handler:'a handler -> 'a t
+val post : 'a t -> route:string -> ?authorizer:'a auth_handler -> handler:'a handler -> 'a t
+val put : 'a t -> route:string -> ?authorizer:'a auth_handler -> handler:'a handler ->  'a t
+val patch : 'a t -> route:string -> ?authorizer:'a auth_handler -> handler:'a handler -> 'a t
+val options : 'a t -> route:string -> ?authorizer:'a auth_handler -> handler:'a handler -> 'a t
+val set_authorization_handler: 'a t -> authorizer:'a auth_handler -> 'a t
+val set_routing_error_handler: 'a t -> handler:'a handler -> 'a t
+
+val base_system: unit -> 'a t
 
 val serve: ?listen_on:string ->
            ?max_connections:int ->
@@ -39,8 +42,6 @@ val serve: ?listen_on:string ->
            ?on_handler_error:[ `Call of Socket.Address.Inet.t -> exn -> unit
                              | `Ignore
                              | `Raise ] ->
-           t ->
+           'a t ->
            int ->
            ((Socket.Address.Inet.t, int) Cohttp_async.Server.t Deferred.t)
-
-val to_string: t -> string
