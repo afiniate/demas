@@ -1,0 +1,9 @@
+true: syntax(camlp4o)
+
+<*.atd>: std_json
+<*.ml{,i}>: for-pack(Demas)
+
+<*>: thread, package(core), package(async), package(async_unix)
+<*>: package(cohttp), package(cohttp.async)
+<*>: package(sexplib.syntax), package(sexplib)
+<*>: package(atdgen)
