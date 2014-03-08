@@ -6,7 +6,7 @@ type t
 
 type params = Ouija.params
 
-type handler = body:string Pipe.Reader.t option ->
+type handler = body:Cohttp_async.Body.t ->
                Socket.Address.Inet.t ->
                params ->
                Request.t ->

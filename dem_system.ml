@@ -6,7 +6,7 @@ open Cohttp_async
 
 type params = Ouija.params
 
-type handler = body:string Pipe.Reader.t option ->
+type handler = body:Cohttp_async.Body.t ->
                Socket.Address.Inet.t ->
                params ->
                Request.t ->
@@ -85,9 +85,9 @@ let server sys ~body address req =
   let uri = Uri.path (Request.uri req) in
   let node = get_node sys req in
   match Ouija.resolve_path node uri with
-  | [] -> error_handler sys ~body address [] req
+  | [] -> error_handler sys ~body:body address [] req
   | (params, handler)::_ ->
-     handler ~body address params req
+     handler ~body:body address params req
 
 let listen_to_any port =
   Tcp.Where_to_listen.create
