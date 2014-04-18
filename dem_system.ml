@@ -6,56 +6,62 @@ open Cohttp_async
 
 type params = Ouija.params
 
-type handler = body:Cohttp_async.Body.t ->
-               Socket.Address.Inet.t ->
-               params ->
-               Request.t ->
-               Server.response Deferred.t with sexp_of
+type ('state) handler = body:Cohttp_async.Body.t ->
+                        Socket.Address.Inet.t ->
+                        'state ->
+                        params ->
+                        Request.t ->
+                        ('state * Server.response) Deferred.t with sexp_of
 
-type t = {get: handler Ouija.t;
-          head: handler Ouija.t;
-          delete: handler Ouija.t;
-          post: handler Ouija.t;
-          put: handler Ouija.t;
-          patch: handler Ouija.t;
-          options: handler Ouija.t;
-          routing_error_handler: handler Option.t} with sexp_of
+type ('state) context = {mutable state: 'state;
+                         handler: 'state handler} with sexp_of
 
-let insert_handler ouija route handler =
-  Ouija.insert_handler ouija route handler
+type ('state) t = {default: 'state;
+                   get: 'state context Ouija.t;
+                   head: 'state context Ouija.t;
+                   delete: 'state context Ouija.t;
+                   post: 'state context Ouija.t;
+                   put: 'state context Ouija.t;
+                   patch: 'state context Ouija.t;
+                   options: 'state context Ouija.t;
+                   routing_error_handler: 'state context Option.t} with sexp_of
 
-let get sys ~route ~handler =
-  {sys with get = insert_handler sys.get route handler}
+let insert_handler ouija route state handler =
+  Ouija.insert_handler ouija route {state; handler}
 
-let head sys ~route ~handler =
-  {sys with head = insert_handler sys.head route handler}
+let get sys ~route ~init ~handler =
+  {sys with get = insert_handler sys.get route init handler}
 
-let delete sys ~route ~handler =
-  {sys with delete = insert_handler sys.delete route handler}
+let head sys ~route ~init ~handler =
+  {sys with head = insert_handler sys.head route init handler}
 
-let post sys ~route ~handler =
-  {sys with post = insert_handler sys.post route handler}
+let delete sys ~route ~init ~handler =
+  {sys with delete = insert_handler sys.delete route init handler}
 
-let put sys ~route ~handler =
-  {sys with put = insert_handler sys.put route handler}
+let post sys ~route ~init ~handler =
+  {sys with post = insert_handler sys.post route init handler}
 
-let patch sys ~route ~handler =
-  {sys with patch = insert_handler sys.patch route handler}
+let put sys ~route ~init ~handler =
+  {sys with put = insert_handler sys.put route init handler}
 
-let options sys ~route ~handler =
-  {sys with options = insert_handler sys.options route handler}
+let patch sys ~route ~init ~handler =
+  {sys with patch = insert_handler sys.patch route init handler}
 
-let set_routing_error_handler sys ~handler =
-  {sys with routing_error_handler = Some handler}
+let options sys ~route ~init ~handler =
+  {sys with options = insert_handler sys.options route init handler}
 
-let empty () = {get = Ouija.init '/';
-                head = Ouija.init '/';
-                delete = Ouija.init '/';
-                post = Ouija.init '/';
-                put = Ouija.init '/';
-                patch = Ouija.init '/';
-                options = Ouija.init '/';
-                routing_error_handler = None}
+let set_routing_error_handler sys ~init ~handler =
+  {sys with routing_error_handler = Some {state=init; handler}}
+
+let init ~default = {default = default;
+                     get = Ouija.init '/';
+                     head = Ouija.init '/';
+                     delete = Ouija.init '/';
+                     post = Ouija.init '/';
+                     put = Ouija.init '/';
+                     patch = Ouija.init '/';
+                     options = Ouija.init '/';
+                     routing_error_handler = None}
 
 let default_error_handler ~body address req =
   ignore body;
@@ -66,10 +72,13 @@ let default_error_handler ~body address req =
 
 let error_handler sys ~body address params req =
   match sys.routing_error_handler with
-  | Some handler ->
-     handler ~body address params req
+  | Some ctx ->
+     ctx.handler ~body address ctx.state params req
+     >>= fun (state', response) ->
+     ctx.state <- state';
+     return response
   | None ->
-     (default_error_handler ~body address req)
+     default_error_handler ~body address req
 
 let get_node sys req =
   match Request.meth req with
@@ -85,9 +94,13 @@ let server sys ~body address req =
   let uri = Uri.path (Request.uri req) in
   let node = get_node sys req in
   match Ouija.resolve_path node uri with
-  | [] -> error_handler sys ~body:body address [] req
-  | (params, handler)::_ ->
-     handler ~body:body address params req
+  | [] ->
+     error_handler sys ~body:body address [] req
+  | (params, ctx)::_ ->
+     ctx.handler ~body:body address ctx.state params req
+     >>= fun (state', response) ->
+     ctx.state <- state';
+     return response
 
 let listen_to_any port =
   Tcp.Where_to_listen.create
