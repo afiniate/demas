@@ -32,6 +32,9 @@ let insert_handler ouija route state handler =
 let get sys ~route ~init ~handler =
   {sys with get = insert_handler sys.get route init handler}
 
+let list = get
+let retrieve = get
+
 let head sys ~route ~init ~handler =
   {sys with head = insert_handler sys.head route init handler}
 
@@ -41,8 +44,12 @@ let delete sys ~route ~init ~handler =
 let post sys ~route ~init ~handler =
   {sys with post = insert_handler sys.post route init handler}
 
+let create = post
+
 let put sys ~route ~init ~handler =
   {sys with put = insert_handler sys.put route init handler}
+
+let replace = put
 
 let patch sys ~route ~init ~handler =
   {sys with patch = insert_handler sys.patch route init handler}
