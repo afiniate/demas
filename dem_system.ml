@@ -17,17 +17,17 @@ type ('state) context = {mutable state: 'state;
                          handler: 'state handler} with sexp_of
 
 type ('state) t = {default: 'state;
-                   get: 'state context Ouija.t;
-                   head: 'state context Ouija.t;
-                   delete: 'state context Ouija.t;
-                   post: 'state context Ouija.t;
-                   put: 'state context Ouija.t;
-                   patch: 'state context Ouija.t;
-                   options: 'state context Ouija.t;
+                   get: 'state context Ouija.t sexp_opaque;
+                   head: 'state context Ouija.t sexp_opaque;
+                   delete: 'state context Ouija.t sexp_opaque;
+                   post: 'state context Ouija.t sexp_opaque;
+                   put: 'state context Ouija.t sexp_opaque;
+                   patch: 'state context Ouija.t sexp_opaque;
+                   options: 'state context Ouija.t sexp_opaque;
                    routing_error_handler: 'state context Option.t} with sexp_of
 
 let insert_handler ouija route state handler =
-  Ouija.insert_handler ouija route {state; handler}
+  Ouija.insert ouija route {state; handler}
 
 let get sys ~route ~init ~handler =
   {sys with get = insert_handler sys.get route init handler}
