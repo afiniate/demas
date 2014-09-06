@@ -2,6 +2,10 @@ open Core.Std
 open Async.Std
 open Cohttp_async
 
+(** Provides a very, very simple, thin, restful wrapper on top of
+    Cohttp. This should allow fairly straight forward creating of restful
+    services on top of the base cohttp layer *)
+
 type 'state t
 
 type params = Ouija.params
@@ -13,21 +17,24 @@ type ('state) handler = body:Cohttp_async.Body.t ->
   Request.t ->
   ('state * Server.response) Deferred.t with sexp_of
 
-(** Get based REST actions. The rest actions `list` and `retrieve`
-    are simple aliases that exist for deadability *)
 val get : 'state t -> route:String.t -> init:'state -> handler:'state handler -> 'state t
+(** Get based REST actions. The rest actions `list` and `retrieve`
+    are simple aliases that exist for readability *)
+
 val list : 'state t -> route:String.t -> init:'state -> handler:'state handler -> 'state t
 val retrieve : 'state t -> route:String.t -> init:'state -> handler:'state handler -> 'state t
 
 val head : 'state t -> route:String.t -> init:'state -> handler:'state handler -> 'state t
 val delete : 'state t -> route:String.t -> init:'state -> handler:'state handler -> 'state t
 
-(** Post based REST actions. `create` is an alias that exists for readability *)
 val post : 'state t -> route:String.t -> init:'state -> handler:'state handler -> 'state t
+(** Post based REST actions. `create` is an alias that exists for readability *)
+
 val create : 'state t -> route:String.t -> init:'state -> handler:'state handler -> 'state t
 
-(** Put based REST actions. `replace` is an alias that exists for readability *)
 val put : 'state t -> route:String.t -> init:'state -> handler:'state handler ->  'state t
+(** Put based REST actions. `replace` is an alias that exists for readability *)
+
 val replace : 'state t -> route:String.t -> init:'state -> handler:'state handler ->  'state t
 
 val patch : 'state t -> route:String.t -> init:'state -> handler:'state handler -> 'state t
