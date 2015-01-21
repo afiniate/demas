@@ -1,9 +1,5 @@
-true: syntax(camlp4o)
+".git": -traverse
+".git": not_hygienic
+true: warn_error_A, warn(-40)
 
-<*.atd>: std_json
-<*.ml{,i}>: for-pack(Demas)
-
-<*>: thread, package(core), package(async), package(async_unix)
-<*>: package(cohttp), package(cohttp.async)
-<*>: package(sexplib.syntax), package(sexplib)
-<*>: package(atdgen)
+<lib>: include
