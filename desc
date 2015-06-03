@@ -1,0 +1,2 @@
+Thin restful wrapper on top of cohttp.
+It allows simple creation of restful services on top of the base cohttp layer

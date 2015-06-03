@@ -1,9 +1,5 @@
 true: syntax(camlp4o)
 
-<*.atd>: std_json
-<*.ml{,i}>: for-pack(Demas)
-
-<*>: thread, package(core), package(async), package(async_unix)
+<*>: thread, package(core), package(async)
 <*>: package(cohttp), package(cohttp.async)
-<*>: package(sexplib.syntax), package(sexplib)
-<*>: package(ouija)
+<*>: package(sexplib), package(sexplib.syntax), package(ouija)
