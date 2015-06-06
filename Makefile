@@ -6,12 +6,13 @@ HOMEPAGE:="https://github.com/afiniate/demas"
 DEV_REPO:="git@github.com:afiniate/demas.git"
 BUG_REPORTS:="https://github.com/afiniate/demas/issues"
 
-DESC:=""
+DESC_FILE:= desc
 
-BUILD_DEPS:=vrt
-DEPS:=core async async_unix async_shell cohttp cohttp.async sexplib ouija
+OCAML_PKG_DEPS := ocaml findlib camlp4
+OCAML_DEPS := core sexplib sexplib.syntax async cohttp cohttp.async ouija
+DEPS := trv vrt
 
-vrt.mk:
-	vrt prj gen-mk
+trv.mk:
+	trv build gen-mk
 
--include vrt.mk
+-include trv.mk
